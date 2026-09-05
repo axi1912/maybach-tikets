@@ -1,0 +1,18 @@
+{
+  "name": "maybach-ticket-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de tickets para MayBach RP",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7"
+  }
+}
