@@ -1,0 +1,109 @@
+{
+  "brand": {
+    "name": "MayBach RP",
+    "color": "#D4AF37",
+    "footer": "MayBach RP Ticket Bot",
+    "logoUrl": "https://media.discordapp.net/attachments/1518130750979969190/1545879839972524123/myLogo.png?ex=6a9dc04a&is=6a9c6eca&hm=48da76757595ecfdf00cab874ff96898ac8c46a79e56fe386aaf4998aa1464d0&=&format=webp&quality=lossless&width=1032&height=1032"
+  },
+  "panelChannelId": "1538410725746409482",
+  "ticketCategoryId": "1535145830489657384",
+  "transcriptChannelId": "1530037556962398321",
+  "staffRoleIds": [
+    "1532253050037862420",
+    "1532253129049903225",
+    "1532253169910808606",
+    "1532253269223669830",
+    "1532254627590967327"
+  ],
+  "categories": {
+    "support": {
+      "label": "Soporte",
+      "emoji": "💬",
+      "description": "Ayuda general relacionada con el servidor.",
+      "prefix": "soporte",
+      "categoryId": "1535145830489657384",
+      "roleIds": [
+        "1532254657500676116",
+        "1532254685673685094"
+      ]
+    },
+    "reports": {
+      "label": "Reportes",
+      "emoji": "🚩",
+      "description": "Reporta jugadores o incumplimientos de las normas.",
+      "prefix": "reporte",
+      "categoryId": "1535151724375834684",
+      "roleIds": [
+        "1532254657500676116",
+        "1532254627590967327",
+        "1532253269223669830"
+      ]
+    },
+    "donations": {
+      "label": "Donaciones",
+      "emoji": "💰",
+      "description": "Soporte y dudas relacionadas con donaciones, pagos y renovaciones.",
+      "prefix": "donacion",
+      "categoryId": "1539062281407692841",
+      "roleIds": [
+        "1532253050037862420",
+        "1532253129049903225"
+      ]
+    },
+    "vip": {
+      "label": "VIP",
+      "emoji": "💎",
+      "description": "Compras VIP, mejoras y soporte de membresía.",
+      "prefix": "vip",
+      "categoryId": "1539062364710641684",
+      "roleIds": [
+        "1532253050037862420",
+        "1532253129049903225",
+        "1532253269223669830",
+        "1532254627590967327"
+      ]
+    },
+    "staff_report": {
+      "label": "Reportar al Staff",
+      "emoji": "🛡️",
+      "description": "Reporta actuaciones inadecuadas de un miembro del Staff.",
+      "prefix": "staff",
+      "roleIds": []
+    },
+    "organizations": {
+      "label": "Organizaciones",
+      "emoji": "🏢",
+      "description": "Postulaciones y gestiones de organizaciones.",
+      "prefix": "org",
+      "roleIds": []
+    },
+    "creators": {
+      "label": "Creadores de contenido",
+      "emoji": "🎥",
+      "description": "Solicitudes y consultas del programa de creadores.",
+      "prefix": "creador",
+      "roleIds": []
+    },
+    "business": {
+      "label": "Negocios",
+      "emoji": "🏆",
+      "description": "Adquisición y gestiones relacionadas con negocios.",
+      "prefix": "negocio",
+      "roleIds": []
+    },
+    "rewards": {
+      "label": "Premios",
+      "emoji": "🎁",
+      "description": "Reclamos de sorteos, eventos y recompensas.",
+      "prefix": "premio",
+      "roleIds": []
+    },
+    "refunds": {
+      "label": "Devoluciones",
+      "emoji": "📦",
+      "description": "Reporta pérdidas de dinero, monedas, ítems o pases.",
+      "prefix": "devolucion",
+      "roleIds": []
+    }
+  }
+}
