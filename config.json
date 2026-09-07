@@ -9,6 +9,10 @@
   "panelChannelId": "1538410725746409482",
   "ticketCategoryId": "1535145830489657384",
   "transcriptChannelId": "1530037556962398321",
+  "payments": {
+    "paypal": "kaltcr547gmail.com",
+    "binanceUsdt": "1031879360"
+  },
   "staffRoleIds": [
     "1532253050037862420",
     "1532253129049903225",

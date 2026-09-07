@@ -53,11 +53,27 @@ const panelIconFiles = {
   refunds: '78507-punishment.png',
 };
 
+const paymentIconFiles = {
+  paypal: '128457-paypal.png',
+  binance: '310497-bitcoin.png',
+};
+
 const commands = [
   new SlashCommandBuilder()
     .setName('ticket-panel')
     .setDescription('Publica el panel principal de tickets')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder()
+    .setName('metodos-pago')
+    .setDescription('Publica un embed con los métodos de pago')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addChannelOption((option) =>
+      option
+        .setName('canal')
+        .setDescription('Canal donde se publicarán los métodos de pago')
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(false),
+    ),
   new SlashCommandBuilder()
     .setName('ticket')
     .setDescription('Administra el ticket actual')
@@ -122,7 +138,7 @@ function isStaff(member) {
     || config.staffRoleIds.some((roleId) => member.roles.cache.has(roleId));
 }
 
-function panelEmojiName(fileName) {
+function localEmojiName(fileName) {
   const baseName = path.basename(fileName, path.extname(fileName))
     .replace(/^\d+-/, '')
     .replace(/[^a-z0-9]+/gi, '_')
@@ -137,13 +153,13 @@ function selectMenuEmoji(emoji) {
   return { id: emoji.id, name: emoji.name, animated: emoji.animated };
 }
 
-async function resolvePanelEmojis(guild) {
-  if (!guild) return { byCategory: {}, failedUploads: 0, missingFiles: 0 };
+async function resolveLocalEmojis(guild, filesByKey, reason) {
+  if (!guild) return { byKey: {}, failedUploads: 0, missingFiles: 0 };
 
   const emojisPath = path.join(root, 'emojis');
-  const uniqueFiles = [...new Set(Object.values(panelIconFiles))];
+  const uniqueFiles = [...new Set(Object.values(filesByKey))];
   const uploadedByFile = new Map();
-  const byCategory = {};
+  const byKey = {};
   let failedUploads = 0;
   let missingFiles = 0;
 
@@ -157,7 +173,7 @@ async function resolvePanelEmojis(guild) {
       continue;
     }
 
-    const name = panelEmojiName(fileName);
+    const name = localEmojiName(fileName);
     let emoji = emojiCollection.find((item) => item.name === name);
 
     if (!emoji) {
@@ -165,7 +181,7 @@ async function resolvePanelEmojis(guild) {
         emoji = await guild.emojis.create({
           attachment: filePath,
           name,
-          reason: `Icono del panel de tickets de ${config.brand.name}`,
+          reason,
         });
       } catch (error) {
         failedUploads += 1;
@@ -177,18 +193,30 @@ async function resolvePanelEmojis(guild) {
     uploadedByFile.set(fileName, emoji);
   }
 
-  Object.entries(panelIconFiles).forEach(([categoryKey, fileName]) => {
+  Object.entries(filesByKey).forEach(([key, fileName]) => {
     const emoji = uploadedByFile.get(fileName);
     if (!emoji) return;
 
-    byCategory[categoryKey] = {
+    byKey[key] = {
       display: emoji.toString(),
       menu: selectMenuEmoji(emoji),
     };
   });
 
-  panelEmojiCache.set(guild.id, byCategory);
-  return { byCategory, failedUploads, missingFiles };
+  return { byKey, failedUploads, missingFiles };
+}
+
+async function resolvePanelEmojis(guild) {
+  const result = await resolveLocalEmojis(guild, panelIconFiles, `Icono del panel de tickets de ${config.brand.name}`);
+  const byCategory = result.byKey;
+
+  if (guild) panelEmojiCache.set(guild.id, byCategory);
+  return { byCategory, failedUploads: result.failedUploads, missingFiles: result.missingFiles };
+}
+
+async function resolvePaymentEmojis(guild) {
+  const result = await resolveLocalEmojis(guild, paymentIconFiles, `Icono de métodos de pago de ${config.brand.name}`);
+  return { byMethod: result.byKey, failedUploads: result.failedUploads, missingFiles: result.missingFiles };
 }
 
 function panelCategoryEmoji(categoryKey, category, panelEmojis = {}) {
@@ -287,6 +315,40 @@ function panelComponents(panelEmojis = {}) {
       })),
     );
   return [new ActionRowBuilder().addComponents(menu)];
+}
+
+function paymentEmbed(paymentEmojis = {}) {
+  const paypal = paymentEmojis.paypal?.display || '💳';
+  const binance = paymentEmojis.binance?.display || '🪙';
+  const payments = config.payments || {};
+
+  const embed = new EmbedBuilder()
+    .setColor(hexColor())
+    .setDescription([
+      `> *Métodos oficiales de pago de ${config.brand.name}.*`,
+      '> *Verifica los datos antes de enviar tu comprobante.*',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━',
+      '',
+      `${paypal}・**PayPal**`,
+      `╰・\`${payments.paypal || 'No configurado'}\``,
+      '',
+      `${binance}・**Binance Crypto USDT**`,
+      `╰・\`${payments.binanceUsdt || 'No configurado'}\``,
+      '',
+      '★━━━━━━━━━━━━━━━━━━━━★',
+      '',
+      '**Luego del pago**',
+      'Abre o responde un ticket de donaciones y adjunta tu comprobante para validar la compra.',
+    ].join('\n'))
+    .setFooter({ text: config.brand.footer || `${config.brand.name} • Métodos de pago` })
+    .setTimestamp();
+
+  if (config.brand.logoUrl && !config.brand.logoUrl.startsWith('PEGA_')) {
+    embed.setThumbnail(config.brand.logoUrl);
+  }
+
+  return embed;
 }
 
 function ticketButtons(claimed = false) {
@@ -503,6 +565,23 @@ client.on('interactionCreate', async (interaction) => {
           ? ' Algunos iconos locales no pudieron cargarse; revisa permisos de emojis del bot o la carpeta emojis.'
           : '';
         return interaction.editReply({ content: `Panel de tickets publicado.${warning}` });
+      }
+
+      if (interaction.commandName === 'metodos-pago') {
+        await interaction.deferReply({ ephemeral: true });
+        const targetChannel = interaction.options.getChannel('canal') || interaction.channel;
+
+        if (!targetChannel?.isTextBased()) {
+          return interaction.editReply({ content: 'Selecciona un canal de texto válido para publicar los métodos de pago.' });
+        }
+
+        const paymentEmojis = await resolvePaymentEmojis(interaction.guild);
+        await targetChannel.send({ embeds: [paymentEmbed(paymentEmojis.byMethod)] });
+
+        const warning = paymentEmojis.failedUploads || paymentEmojis.missingFiles
+          ? ' Algunos iconos locales no pudieron cargarse; revisa permisos de emojis del bot o la carpeta emojis.'
+          : '';
+        return interaction.editReply({ content: `Métodos de pago publicados en ${targetChannel}.${warning}` });
       }
 
       if (interaction.commandName === 'ticket') {
