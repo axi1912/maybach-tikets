@@ -2,6 +2,7 @@
   "brand": {
     "name": "MayBach RP",
     "color": "#D4AF37",
+    "panelColor": "#D4AF37",
     "footer": "MayBach RP Ticket Bot",
     "logoUrl": "https://media.discordapp.net/attachments/1518130750979969190/1545879839972524123/myLogo.png?ex=6a9dc04a&is=6a9c6eca&hm=48da76757595ecfdf00cab874ff96898ac8c46a79e56fe386aaf4998aa1464d0&=&format=webp&quality=lossless&width=1032&height=1032"
   },

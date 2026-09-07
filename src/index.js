@@ -38,6 +38,20 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 const ticketTimeouts = new Map();
+const panelEmojiCache = new Map();
+
+const panelIconFiles = {
+  support: '74135-new-member.png',
+  reports: '11838-warning.png',
+  donations: '90665-shopping-cart.png',
+  vip: '90665-shopping-cart.png',
+  staff_report: '52662-trial-mod.png',
+  organizations: '74135-new-member.png',
+  creators: '26778-video-creator.png',
+  business: '90665-shopping-cart.png',
+  rewards: '78507-punishment.png',
+  refunds: '78507-punishment.png',
+};
 
 const commands = [
   new SlashCommandBuilder()
@@ -71,6 +85,10 @@ function hexColor() {
   return Number.parseInt((config.brand.color || '#D4AF37').replace('#', ''), 16);
 }
 
+function panelColor() {
+  return Number.parseInt((config.brand.panelColor || config.brand.color || '#D4AF37').replace('#', ''), 16);
+}
+
 function safeName(value) {
   return value
     .normalize('NFD')
@@ -102,6 +120,83 @@ function makeTopic(owner, type, claimed = '') {
 function isStaff(member) {
   return member.permissions.has(PermissionFlagsBits.ManageChannels)
     || config.staffRoleIds.some((roleId) => member.roles.cache.has(roleId));
+}
+
+function panelEmojiName(fileName) {
+  const baseName = path.basename(fileName, path.extname(fileName))
+    .replace(/^\d+-/, '')
+    .replace(/[^a-z0-9]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+
+  return `mb_${baseName}`.slice(0, 32);
+}
+
+function selectMenuEmoji(emoji) {
+  if (!emoji) return null;
+  return { id: emoji.id, name: emoji.name, animated: emoji.animated };
+}
+
+async function resolvePanelEmojis(guild) {
+  if (!guild) return { byCategory: {}, failedUploads: 0, missingFiles: 0 };
+
+  const emojisPath = path.join(root, 'emojis');
+  const uniqueFiles = [...new Set(Object.values(panelIconFiles))];
+  const uploadedByFile = new Map();
+  const byCategory = {};
+  let failedUploads = 0;
+  let missingFiles = 0;
+
+  const fetchedEmojis = await guild.emojis.fetch().catch(() => null);
+  const emojiCollection = fetchedEmojis || guild.emojis.cache;
+
+  for (const fileName of uniqueFiles) {
+    const filePath = path.join(emojisPath, fileName);
+    if (!fs.existsSync(filePath)) {
+      missingFiles += 1;
+      continue;
+    }
+
+    const name = panelEmojiName(fileName);
+    let emoji = emojiCollection.find((item) => item.name === name);
+
+    if (!emoji) {
+      try {
+        emoji = await guild.emojis.create({
+          attachment: filePath,
+          name,
+          reason: `Icono del panel de tickets de ${config.brand.name}`,
+        });
+      } catch (error) {
+        failedUploads += 1;
+        console.warn(`[MayBach Tickets] No se pudo sincronizar el emoji ${name}:`, error.message);
+        continue;
+      }
+    }
+
+    uploadedByFile.set(fileName, emoji);
+  }
+
+  Object.entries(panelIconFiles).forEach(([categoryKey, fileName]) => {
+    const emoji = uploadedByFile.get(fileName);
+    if (!emoji) return;
+
+    byCategory[categoryKey] = {
+      display: emoji.toString(),
+      menu: selectMenuEmoji(emoji),
+    };
+  });
+
+  panelEmojiCache.set(guild.id, byCategory);
+  return { byCategory, failedUploads, missingFiles };
+}
+
+function panelCategoryEmoji(categoryKey, category, panelEmojis = {}) {
+  return panelEmojis[categoryKey]?.display || category.emoji || '•';
+}
+
+function cachedPanelCategoryEmoji(guildId, categoryKey, category) {
+  return panelEmojiCache.get(guildId)?.[categoryKey]?.display || category.emoji || '•';
 }
 
 function countOpenTickets(guild) {
@@ -153,45 +248,41 @@ async function updateBotPresence(guild) {
   });
 }
 
-function panelEmbed() {
-  const lines = Object.values(config.categories)
-    .map((category) => `${category.emoji} **${category.label}**\n${category.description}`)
+function panelEmbed(panelEmojis = {}) {
+  const lines = Object.entries(config.categories)
+    .map(([key, category]) => [
+      `${panelCategoryEmoji(key, category, panelEmojis)}・**${category.label}**`,
+      `╰・${category.description}`,
+    ].join('\n'))
     .join('\n\n');
 
   const embed = new EmbedBuilder()
-    .setColor(hexColor())
-    .setTitle(`🎫 Centro de Atención — ${config.brand.name}`)
+    .setColor(panelColor())
     .setDescription([
-      `Bienvenido al centro oficial de soporte de **${config.brand.name}**.`,
+      `> *Bienvenido al sistema de tickets de ${config.brand.name}.*`,
+      '> *Selecciona el tipo de ticket según tu necesidad.*',
       '',
-      'Selecciona la categoría que corresponda a tu solicitud. Nuestro equipo podrá ayudarte con mayor rapidez si explicas el caso claramente.',
+      '━━━━━━━━━━━━━━━━━━━━',
       '',
       lines,
       '',
-      '📌 **Antes de abrir un ticket**',
-      '• No abras solicitudes duplicadas.',
-      '• Mantén una actitud respetuosa.',
-      '• Incluye evidencias cuando sean necesarias.',
-      '• No etiquetes al equipo repetidamente.',
+      '★━━━━━━━━━━━━━━━━━━━━★',
     ].join('\n'))
     .setFooter({ text: config.brand.footer || `${config.brand.name} • Centro de atención` })
     .setTimestamp();
 
-  if (config.brand.logoUrl && !config.brand.logoUrl.startsWith('PEGA_')) {
-    embed.setThumbnail(config.brand.logoUrl);
-  }
   return embed;
 }
 
-function panelComponents() {
+function panelComponents(panelEmojis = {}) {
   const menu = new StringSelectMenuBuilder()
     .setCustomId('ticket_category')
-    .setPlaceholder('Selecciona una categoría')
+    .setPlaceholder('Selecciona categoría...')
     .addOptions(
       Object.entries(config.categories).map(([value, category]) => ({
         label: category.label.slice(0, 100),
         description: category.description.slice(0, 100),
-        emoji: category.emoji,
+        emoji: panelEmojis[value]?.menu || category.emoji,
         value,
       })),
     );
@@ -312,7 +403,7 @@ async function createTicket(interaction, type, subject, details) {
 
   const ticketEmbed = new EmbedBuilder()
     .setColor(hexColor())
-    .setTitle(`${category.emoji} ${category.label}`)
+    .setTitle(`${cachedPanelCategoryEmoji(interaction.guild.id, type, category)} ${category.label}`)
     .setDescription([
       `Hola ${interaction.user}, tu solicitud ya fue creada.`,
       '',
@@ -401,8 +492,17 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.channelId !== config.panelChannelId) {
           return interaction.reply({ content: `Utiliza este comando en <#${config.panelChannelId}>.`, ephemeral: true });
         }
-        await interaction.channel.send({ embeds: [panelEmbed()], components: panelComponents() });
-        return interaction.reply({ content: 'Panel de tickets publicado.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        const panelEmojis = await resolvePanelEmojis(interaction.guild);
+        await interaction.channel.send({
+          embeds: [panelEmbed(panelEmojis.byCategory)],
+          components: panelComponents(panelEmojis.byCategory),
+        });
+
+        const warning = panelEmojis.failedUploads || panelEmojis.missingFiles
+          ? ' Algunos iconos locales no pudieron cargarse; revisa permisos de emojis del bot o la carpeta emojis.'
+          : '';
+        return interaction.editReply({ content: `Panel de tickets publicado.${warning}` });
       }
 
       if (interaction.commandName === 'ticket') {
